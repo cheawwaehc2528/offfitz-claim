@@ -49,7 +49,7 @@ if "form_key" not in st.session_state:
 if "success_msg" not in st.session_state:
     st.session_state.success_msg = ""
 
-# --- ฟังก์ชันเชื่อมต่อ Google Sheets (ระบบ Regex สับขยะทิ้ง) ---
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเกรดหมัดน็อค: strict=False) ---
 @st.cache_resource
 def connect_google():
     clean = ""
@@ -61,15 +61,18 @@ def connect_google():
             # 1. เปลี่ยน Quote แปลกๆ ให้เป็น Quote มาตรฐาน
             clean = re.sub(r"[‘’'“”]", '"', raw_secret)
             
-            # 2. พระเอกของเรา: สับปีกกาที่ซ้อนกัน และช่องว่างล่องหน ด้านหน้าสุด ให้เหลือแค่ { ตัวเดียว
+            # 2. สับปีกกาที่ซ้อนกัน และช่องว่างล่องหน ด้านหน้าและด้านหลังสุดทิ้ง
             clean = re.sub(r'^[\s\{]+', '{', clean)
-            
-            # 3. สับปีกกาซ้อน และช่องว่าง ด้านหลังสุด ให้เหลือแค่ } ตัวเดียว
             clean = re.sub(r'[\s\}]+$', '}', clean)
             
-            secret_dict = json.loads(clean)
+            # 🧨 หมัดน็อค: strict=False สั่งให้ Python อนุโลมการขึ้นบรรทัดใหม่ที่ผิดกฎ
+            secret_dict = json.loads(clean, strict=False)
         else:
             secret_dict = raw_secret
+            
+        # 3. จัดการบรรทัด private_key ให้กลับมาเป็น \n ที่ถูกต้อง เพื่อส่งให้ Google
+        if "private_key" in secret_dict:
+            secret_dict["private_key"] = secret_dict["private_key"].replace('\\n', '\n')
             
         creds = Credentials.from_service_account_info(secret_dict, scopes=scopes)
         gc = gspread.authorize(creds)
@@ -77,7 +80,7 @@ def connect_google():
         return sheet
     except Exception as e:
         st.error(f"🚨 ข้อผิดพลาดการเชื่อมต่อ: {e}")
-        st.code(f"🔍 ข้อมูลหลังโดนซ่อมแล้ว (ถ้ายังพังแปลว่ามีจุดอื่น): \n{clean[:80]}...", language="json")
+        st.code(f"🔍 ข้อมูลหลังโดนซ่อมแล้ว: \n{clean[:80]}...", language="json")
         return None
 
 # ========================================
@@ -95,7 +98,7 @@ if st.sidebar.button("🚪 ออกจากระบบ (Logout)"):
     st.session_state.logged_in = False
     st.query_params.clear() 
     st.rerun()
-st.sidebar.caption("Off Fitz Claim Management System v2.9")
+st.sidebar.caption("Off Fitz Claim Management System v3.0")
 
 # ========================================
 # 📝 หน้าที่ 1: บันทึกเคลมใหม่
