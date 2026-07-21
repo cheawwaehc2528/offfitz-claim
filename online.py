@@ -4,6 +4,7 @@ import datetime
 import re
 import requests
 import json
+import ast
 from PIL import Image
 import io
 from google.oauth2.service_account import Credentials
@@ -16,7 +17,7 @@ SHEET_ID = "1lq3iFPLdzi17xNr8-qHi7azX5ImIUnvD7z9ITvMkAek"
 UPLOAD_URL = "https://claims.offfitz.com/upload.php"
 
 # 🔒 ดึงรหัสผ่านจากตู้เซฟ Streamlit Secrets
-APP_PASSWORD = st.secrets["app_password"]
+APP_PASSWORD = st.secrets.get("app_password", "1234")
 
 st.set_page_config(page_title="ระบบจัดการเคลมสินค้า - Off Fitz", layout="centered", page_icon="📦")
 
@@ -44,23 +45,33 @@ if "form_key" not in st.session_state:
 if "success_msg" not in st.session_state:
     st.session_state.success_msg = ""
 
-# --- ฟังก์ชันเชื่อมต่อ Google Sheets (เพิ่มระบบสแกนล้างช่องว่างล่องหน) ---
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเกรดระบบซ่อมแซมข้อความ) ---
 @st.cache_resource
 def connect_google():
     try:
         scopes = ['https://www.googleapis.com/auth/spreadsheets']
-        
-        # 🧹 ดึงกุญแจมา และล้าง "ช่องว่างล่องหน (\xa0)" ที่ติดมาจากการก๊อปปี้
         raw_secret = st.secrets["google_secret"]
-        clean_secret = raw_secret.replace('\xa0', ' ').replace('\u200b', '').strip()
         
-        secret_dict = json.loads(clean_secret)
+        # ถ้าระบบอ่านมาเป็น String ให้ทำการล้างและซ่อมแซมตัวอักษร
+        if isinstance(raw_secret, str):
+            # 1. เปลี่ยน Single Quote และ Smart Quote ให้เป็น Double Quote มาตรฐาน
+            clean_secret = raw_secret.replace("'", '"').replace("“", '"').replace("”", '"').replace("‘", '"').replace("’", '"')
+            # 2. ลบช่องว่างล่องหนที่ติดมาจากการก๊อปปี้
+            clean_secret = clean_secret.replace('\xa0', ' ').replace('\u200b', '').strip()
+            
+            secret_dict = json.loads(clean_secret)
+        else:
+            # ถ้าเป็น Dictionary อยู่แล้ว ใช้ได้เลย
+            secret_dict = raw_secret
+            
         creds = Credentials.from_service_account_info(secret_dict, scopes=scopes)
         gc = gspread.authorize(creds)
         sheet = gc.open_by_key(SHEET_ID).sheet1
         return sheet
     except Exception as e:
         st.error(f"🚨 ข้อผิดพลาดการเชื่อมต่อ: {e}")
+        # แอบดูว่าคอมพิวเตอร์มองเห็นกุญแจเป็นตัวอักษรแบบไหน (โชว์แค่ 50 ตัวแรก ปลอดภัยครับ)
+        st.code(f"🔍 สิ่งที่คอมพิวเตอร์เห็น (50 ตัวแรก):\n{str(raw_secret)[:50]}...", language="json")
         return None
 
 # ========================================
@@ -72,7 +83,7 @@ st.sidebar.write("---")
 if st.sidebar.button("🚪 ออกจากระบบ (Logout)"):
     st.session_state.logged_in = False
     st.rerun()
-st.sidebar.caption("Off Fitz Claim Management System v2.6")
+st.sidebar.caption("Off Fitz Claim Management System v2.7")
 
 # ========================================
 # 📝 หน้าที่ 1: บันทึกเคลมใหม่
