@@ -4,7 +4,6 @@ import datetime
 import re
 import requests
 import json
-import ast
 from PIL import Image
 import io
 from google.oauth2.service_account import Credentials
@@ -50,27 +49,25 @@ if "form_key" not in st.session_state:
 if "success_msg" not in st.session_state:
     st.session_state.success_msg = ""
 
-# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเกรดยาแรง: ลบปีกกาเบิ้ล) ---
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets (ระบบ Regex สับขยะทิ้ง) ---
 @st.cache_resource
 def connect_google():
+    clean = ""
     try:
         scopes = ['https://www.googleapis.com/auth/spreadsheets']
         raw_secret = st.secrets["google_secret"]
         
         if isinstance(raw_secret, str):
-            clean_secret = raw_secret.replace("'", '"').replace("“", '"').replace("”", '"').replace("‘", '"').replace("’", '"')
-            clean_secret = clean_secret.replace('\xa0', ' ').replace('\u200b', '').strip()
+            # 1. เปลี่ยน Quote แปลกๆ ให้เป็น Quote มาตรฐาน
+            clean = re.sub(r"[‘’'“”]", '"', raw_secret)
             
-            # 🧨 ยาแรง: บังคับยุบปีกกาเบิ้ลให้เหลือตัวเดียว
-            clean_secret = clean_secret.replace("{{", "{").replace("}}", "}")
+            # 2. พระเอกของเรา: สับปีกกาที่ซ้อนกัน และช่องว่างล่องหน ด้านหน้าสุด ให้เหลือแค่ { ตัวเดียว
+            clean = re.sub(r'^[\s\{]+', '{', clean)
             
-            # ✂️ ตัดเอาเฉพาะโค้ดตั้งแต่ { ถึง }
-            start = clean_secret.find('{')
-            end = clean_secret.rfind('}')
-            if start != -1 and end != -1:
-                clean_secret = clean_secret[start:end+1]
-                
-            secret_dict = json.loads(clean_secret)
+            # 3. สับปีกกาซ้อน และช่องว่าง ด้านหลังสุด ให้เหลือแค่ } ตัวเดียว
+            clean = re.sub(r'[\s\}]+$', '}', clean)
+            
+            secret_dict = json.loads(clean)
         else:
             secret_dict = raw_secret
             
@@ -80,7 +77,7 @@ def connect_google():
         return sheet
     except Exception as e:
         st.error(f"🚨 ข้อผิดพลาดการเชื่อมต่อ: {e}")
-        st.code(f"🔍 สิ่งที่คอมพิวเตอร์เห็น (50 ตัวแรก):\n{str(raw_secret)[:50]}...", language="json")
+        st.code(f"🔍 ข้อมูลหลังโดนซ่อมแล้ว (ถ้ายังพังแปลว่ามีจุดอื่น): \n{clean[:80]}...", language="json")
         return None
 
 # ========================================
