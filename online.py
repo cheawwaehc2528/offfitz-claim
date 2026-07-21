@@ -44,18 +44,22 @@ if "form_key" not in st.session_state:
 if "success_msg" not in st.session_state:
     st.session_state.success_msg = ""
 
-# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเดตให้โชว์ Error จริง) ---
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets (เพิ่มระบบสแกนล้างช่องว่างล่องหน) ---
 @st.cache_resource
 def connect_google():
     try:
         scopes = ['https://www.googleapis.com/auth/spreadsheets']
-        secret_dict = json.loads(st.secrets["google_secret"])
+        
+        # 🧹 ดึงกุญแจมา และล้าง "ช่องว่างล่องหน (\xa0)" ที่ติดมาจากการก๊อปปี้
+        raw_secret = st.secrets["google_secret"]
+        clean_secret = raw_secret.replace('\xa0', ' ').replace('\u200b', '').strip()
+        
+        secret_dict = json.loads(clean_secret)
         creds = Credentials.from_service_account_info(secret_dict, scopes=scopes)
         gc = gspread.authorize(creds)
         sheet = gc.open_by_key(SHEET_ID).sheet1
         return sheet
     except Exception as e:
-        # จะแสดงข้อความสีแดงแจ้งสาเหตุที่แท้จริงตรงนี้ครับ
         st.error(f"🚨 ข้อผิดพลาดการเชื่อมต่อ: {e}")
         return None
 
@@ -68,7 +72,7 @@ st.sidebar.write("---")
 if st.sidebar.button("🚪 ออกจากระบบ (Logout)"):
     st.session_state.logged_in = False
     st.rerun()
-st.sidebar.caption("Off Fitz Claim Management System v2.5")
+st.sidebar.caption("Off Fitz Claim Management System v2.6")
 
 # ========================================
 # 📝 หน้าที่ 1: บันทึกเคลมใหม่
