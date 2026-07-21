@@ -49,7 +49,7 @@ if "form_key" not in st.session_state:
 if "success_msg" not in st.session_state:
     st.session_state.success_msg = ""
 
-# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเกรดหมัดน็อค: strict=False) ---
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets ---
 @st.cache_resource
 def connect_google():
     clean = ""
@@ -58,19 +58,13 @@ def connect_google():
         raw_secret = st.secrets["google_secret"]
         
         if isinstance(raw_secret, str):
-            # 1. เปลี่ยน Quote แปลกๆ ให้เป็น Quote มาตรฐาน
             clean = re.sub(r"[‘’'“”]", '"', raw_secret)
-            
-            # 2. สับปีกกาที่ซ้อนกัน และช่องว่างล่องหน ด้านหน้าและด้านหลังสุดทิ้ง
             clean = re.sub(r'^[\s\{]+', '{', clean)
             clean = re.sub(r'[\s\}]+$', '}', clean)
-            
-            # 🧨 หมัดน็อค: strict=False สั่งให้ Python อนุโลมการขึ้นบรรทัดใหม่ที่ผิดกฎ
             secret_dict = json.loads(clean, strict=False)
         else:
             secret_dict = raw_secret
             
-        # 3. จัดการบรรทัด private_key ให้กลับมาเป็น \n ที่ถูกต้อง เพื่อส่งให้ Google
         if "private_key" in secret_dict:
             secret_dict["private_key"] = secret_dict["private_key"].replace('\\n', '\n')
             
@@ -80,7 +74,6 @@ def connect_google():
         return sheet
     except Exception as e:
         st.error(f"🚨 ข้อผิดพลาดการเชื่อมต่อ: {e}")
-        st.code(f"🔍 ข้อมูลหลังโดนซ่อมแล้ว: \n{clean[:80]}...", language="json")
         return None
 
 # ========================================
@@ -98,7 +91,7 @@ if st.sidebar.button("🚪 ออกจากระบบ (Logout)"):
     st.session_state.logged_in = False
     st.query_params.clear() 
     st.rerun()
-st.sidebar.caption("Off Fitz Claim Management System v3.0")
+st.sidebar.caption("Off Fitz Claim Management System v3.1")
 
 # ========================================
 # 📝 หน้าที่ 1: บันทึกเคลมใหม่
@@ -230,7 +223,7 @@ if menu_choice == "📝 บันทึกเคลมใหม่":
             with st.spinner('กำลังบีบอัดรูปภาพและบันทึกข้อมูล...'):
                 sheet = connect_google()
                 if sheet is None:
-                    st.error("❌ เชื่อมต่อ Google Sheets ไม่สำเร็จ (เช็ก Error ด้านบน)")
+                    st.error("❌ เชื่อมต่อ Google Sheets ไม่สำเร็จ (โปรดติดต่อแอดมิน)")
                 else:
                     try:
                         image_links = []
@@ -256,11 +249,17 @@ if menu_choice == "📝 บันทึกเคลมใหม่":
                                 files = {'file': (safe_name, img_byte_arr, 'image/jpeg')}
                                 response = requests.post(UPLOAD_URL, files=files)
                                 
-                                result = response.json()
-                                if result.get("status") == "success":
-                                    image_links.append(result.get("url"))
-                                else:
-                                    st.error(f"⚠️ บันทึกรูป {img_file.name} ไม่สำเร็จ: {result.get('message')}")
+                                # 🔍 เพิ่มระบบดักจับ Error จากฝั่งเซิร์ฟเวอร์เพลส (Plesk)
+                                try:
+                                    result = response.json()
+                                    if result.get("status") == "success":
+                                        image_links.append(result.get("url"))
+                                    else:
+                                        st.error(f"⚠️ เซิร์ฟเวอร์เก็บรูปแจ้งว่า: {result.get('message')}")
+                                except json.JSONDecodeError:
+                                    st.error(f"🚨 ไฟล์ upload.php บนเซิร์ฟเวอร์ Plesk ของคุณมีปัญหาครับ!")
+                                    st.code(f"สิ่งที่เซิร์ฟเวอร์ตอบกลับมา (ไม่ใช่ JSON):\n{response.text}", language="html")
+                                    raise Exception("ระบบอัปโหลดรูปภาพขัดข้อง")
                         
                         final_image_links = ", ".join(image_links) if image_links else "-"
                         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -290,7 +289,7 @@ elif menu_choice == "🔍 ค้นหาและดูประวัติ":
 
     sheet = connect_google()
     if sheet is None:
-        st.error("❌ ไม่สามารถดึงข้อมูลจาก Google Sheets ได้ (เช็ก Error ด้านบน)")
+        st.error("❌ ไม่สามารถดึงข้อมูลจาก Google Sheets ได้")
     else:
         data = sheet.get_all_values()
         
