@@ -50,7 +50,7 @@ if "form_key" not in st.session_state:
 if "success_msg" not in st.session_state:
     st.session_state.success_msg = ""
 
-# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเกรดระบบตัดปีกกาเบิ้ล) ---
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเกรดยาแรง: ลบปีกกาเบิ้ล) ---
 @st.cache_resource
 def connect_google():
     try:
@@ -61,7 +61,10 @@ def connect_google():
             clean_secret = raw_secret.replace("'", '"').replace("“", '"').replace("”", '"').replace("‘", '"').replace("’", '"')
             clean_secret = clean_secret.replace('\xa0', ' ').replace('\u200b', '').strip()
             
-            # ✂️ ตัดเอาเฉพาะโค้ดตั้งแต่ { ตัวแรก ถึง } ตัวสุดท้าย (แก้ปัญหาปีกกาเบิ้ล {{ )
+            # 🧨 ยาแรง: บังคับยุบปีกกาเบิ้ลให้เหลือตัวเดียว
+            clean_secret = clean_secret.replace("{{", "{").replace("}}", "}")
+            
+            # ✂️ ตัดเอาเฉพาะโค้ดตั้งแต่ { ถึง }
             start = clean_secret.find('{')
             end = clean_secret.rfind('}')
             if start != -1 and end != -1:
@@ -93,9 +96,9 @@ st.sidebar.info(f"เอา URL ปัจจุบันของเว็บน
 st.sidebar.write("---")
 if st.sidebar.button("🚪 ออกจากระบบ (Logout)"):
     st.session_state.logged_in = False
-    st.query_params.clear() # ล้างลิงก์วิเศษออกตอนกดออกระบบ
+    st.query_params.clear() 
     st.rerun()
-st.sidebar.caption("Off Fitz Claim Management System v2.8")
+st.sidebar.caption("Off Fitz Claim Management System v2.9")
 
 # ========================================
 # 📝 หน้าที่ 1: บันทึกเคลมใหม่
