@@ -15,7 +15,7 @@ import gspread
 SHEET_ID = "1lq3iFPLdzi17xNr8-qHi7azX5ImIUnvD7z9ITvMkAek"
 UPLOAD_URL = "https://claims.offfitz.com/upload.php"
 
-# 🔒 ดึงรหัสผ่านจากตู้เซฟ Streamlit Secrets แทนการเขียนฝังไว้ในโค้ด
+# 🔒 ดึงรหัสผ่านจากตู้เซฟ Streamlit Secrets
 APP_PASSWORD = st.secrets["app_password"]
 
 st.set_page_config(page_title="ระบบจัดการเคลมสินค้า - Off Fitz", layout="centered", page_icon="📦")
@@ -44,6 +44,7 @@ if "form_key" not in st.session_state:
 if "success_msg" not in st.session_state:
     st.session_state.success_msg = ""
 
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets (อัปเดตให้โชว์ Error จริง) ---
 @st.cache_resource
 def connect_google():
     try:
@@ -54,6 +55,8 @@ def connect_google():
         sheet = gc.open_by_key(SHEET_ID).sheet1
         return sheet
     except Exception as e:
+        # จะแสดงข้อความสีแดงแจ้งสาเหตุที่แท้จริงตรงนี้ครับ
+        st.error(f"🚨 ข้อผิดพลาดการเชื่อมต่อ: {e}")
         return None
 
 # ========================================
@@ -65,7 +68,7 @@ st.sidebar.write("---")
 if st.sidebar.button("🚪 ออกจากระบบ (Logout)"):
     st.session_state.logged_in = False
     st.rerun()
-st.sidebar.caption("Off Fitz Claim Management System v2.4")
+st.sidebar.caption("Off Fitz Claim Management System v2.5")
 
 # ========================================
 # 📝 หน้าที่ 1: บันทึกเคลมใหม่
@@ -197,7 +200,7 @@ if menu_choice == "📝 บันทึกเคลมใหม่":
             with st.spinner('กำลังบีบอัดรูปภาพและบันทึกข้อมูล...'):
                 sheet = connect_google()
                 if sheet is None:
-                    st.error("❌ เชื่อมต่อ Google Sheets ไม่สำเร็จ")
+                    st.error("❌ เชื่อมต่อ Google Sheets ไม่สำเร็จ (เช็ก Error ด้านบน)")
                 else:
                     try:
                         image_links = []
@@ -257,7 +260,7 @@ elif menu_choice == "🔍 ค้นหาและดูประวัติ":
 
     sheet = connect_google()
     if sheet is None:
-        st.error("❌ ไม่สามารถดึงข้อมูลจาก Google Sheets ได้")
+        st.error("❌ ไม่สามารถดึงข้อมูลจาก Google Sheets ได้ (เช็ก Error ด้านบน)")
     else:
         data = sheet.get_all_values()
         
